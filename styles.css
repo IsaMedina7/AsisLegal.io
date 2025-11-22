@@ -1,0 +1,54 @@
+:root{
+  --bg:#f7fbff;
+  --card:#ffffff;
+  --muted:#6c757d;
+  --accent:#4f8ef7;
+}
+body{
+  background:var(--bg);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  color:#223;
+}
+#welcome-screen{
+  max-width:760px;
+  padding:4rem 2rem;
+  background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.4));
+  border-radius:12px;
+  box-shadow:0 6px 20px rgba(34,50,84,0.06);
+}
+.chat-card, .sidebar-card{
+  border-radius:10px;
+  box-shadow:0 6px 18px rgba(34,50,84,0.06);
+  background:var(--card);
+}
+.chat-body{
+  height:56vh;
+  min-height:360px;
+  overflow:auto;
+  background:linear-gradient(180deg, #fff, #fbfdff);
+  padding:1rem;
+}
+.message{
+  padding:0.6rem 0.9rem;
+  border-radius:12px;
+  margin-bottom:0.6rem;
+  max-width:85%;
+}
+.message.user{
+  background: #e6f0ff;
+  margin-left:auto;
+  text-align:right;
+}
+.message.bot{
+  background: #f4f6fb;
+  margin-right:auto;
+}
+.files-list{
+  max-height:34vh;
+  overflow:auto;
+}
+.file-item{padding:0.45rem 0.5rem;border-bottom:1px solid #eef2ff;}
+@media (max-width: 767px){
+  .chat-body{height:44vh;}
+  #welcome-screen{padding:2.5rem 1rem}
+}
