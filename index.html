@@ -1,108 +1,289 @@
-<?php
-
-// --- INICIO DEL HACK PARA CORS (Solución Failed to fetch) ---
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-
-// Si el navegador pregunta "¿Puedo enviar?", respondemos SÍ y cortamos aquí.
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-// --- FIN DEL HACK ---
-
-use Illuminate\Http\Request;
-
-define('LARAVEL_START', microtime(true));
-
-// Determine if the application is in maintenance mode...
-if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
-    require $maintenance;
-}
-
-// Register the Auto Loader...
-require __DIR__.'/../vendor/autoload.php';
-
-// Bootstrap Laravel and handle the request...
-(require_once __DIR__.'/../bootstrap/app.php')
-    ->handleRequest(Request::capture());
-
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AsisLegal</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AsisLegal - Cliente Completo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f0f2f5; height: 100vh; overflow: hidden; }
+        .main-container { height: 100vh; max-width: 1400px; margin: 0 auto; display: flex; }
+        
+        /* Sidebar */
+        .sidebar { width: 350px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid #eee; background: #f8f9fa; }
+        .chat-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .chat-item { padding: 15px; border-bottom: 1px solid #f1f1f1; cursor: pointer; transition: 0.2s; border-radius: 8px; margin-bottom: 5px; }
+        .chat-item:hover { background-color: #e9ecef; }
+        .chat-item.active { background-color: #e7f1ff; border-left: 4px solid #0d6efd; }
+
+        /* Chat Area */
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #fff; }
+        .chat-header { padding: 15px 20px; border-bottom: 1px solid #ddd; background: white; display: flex; justify-content: space-between; align-items: center; }
+        .messages-box { flex: 1; overflow-y: auto; padding: 20px; background: #f0f2f5; display: flex; flex-direction: column; gap: 15px; }
+        
+        /* Burbujas de Chat */
+        .message { max-width: 75%; padding: 12px 16px; border-radius: 15px; font-size: 0.95rem; line-height: 1.5; position: relative; word-wrap: break-word; }
+        .message.user { align-self: flex-end; background-color: #0084ff; color: white; border-bottom-right-radius: 2px; }
+        .message.bot { align-self: flex-start; background-color: white; color: #1c1e21; border: 1px solid #ddd; border-bottom-left-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        
+        /* Footer */
+        .input-area { padding: 20px; background: white; border-top: 1px solid #ddd; }
+        
+        /* Utiles */
+        .d-none { display: none !important; }
+    </style>
 </head>
 <body>
-  <div class="container py-5">
-    <!-- Welcome Screen -->
-    <div id="welcome-screen" class="text-center mx-auto">
-      <h1 class="display-4">AsisLegal</h1>
-      <p class="lead mt-4">Bienvenido a AsisLegal, tu compañero para gestionar y comprender textos legales de manera eficiente.</p>
-      <p class="text-muted">Sube documentos legales, haz preguntas y obtén respuestas claras y fáciles de entender.</p>
-      <button id="start-btn" class="btn btn-primary btn-lg mt-4">Crear consulta</button>
+
+<div class="main-container">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-3">📂 Documentos</h4>
+            <input type="file" id="fileInput" accept="application/pdf" style="display: none;">
+            <button onclick="document.getElementById('fileInput').click()" class="btn btn-primary w-100 fw-bold">
+                + Subir Nuevo PDF
+            </button>
+        </div>
+        <div id="chatList" class="chat-list">
+            <div class="text-center text-muted mt-5">Cargando lista...</div>
+        </div>
     </div>
 
-    <!-- Chat / Interaction Screen (hidden initially) -->
-    <div id="chat-screen" class="d-none">
-      <div class="row g-3">
-        <div class="col-12 col-lg-8">
-          <div class="card chat-card">
-            <div class="card-header bg-white d-flex align-items-center justify-content-between">
-              <h5 class="mb-0">AsisLegal</h5>
-              <small class="text-muted">Consulta tus documentos</small>
-            </div>
-            <div class="card-body chat-body" id="messages">
-              <!-- messages appended here -->
-              <div class="text-center text-muted mt-3">No hay mensajes aún. Empieza preguntando sobre tus documentos.</div>
-            </div>
-            <div class="card-footer bg-white">
-              <div class="input-group">
-                <input id="question-input" type="text" class="form-control" placeholder="Escribe tu pregunta...">
-                <button id="send-btn" class="btn btn-primary">Enviar</button>
-              </div>
-              <div class="mt-2 d-flex gap-2">
-                <button id="play-audio" class="btn btn-outline-secondary btn-sm">Reproducir última respuesta</button>
-                <button id="back-btn" class="btn btn-link btn-sm text-danger ms-auto">Volver</button>
-              </div>
-            </div>
-          </div>
+    <div id="welcomeScreen" class="chat-area justify-content-center align-items-center text-center p-5">
+        <div style="max-width: 500px;">
+            <h1 class="display-5 text-primary mb-3">AsisLegal IA</h1>
+            <p class="lead text-muted">Selecciona un documento de la izquierda o sube uno nuevo para comenzar el análisis legal.</p>
         </div>
-
-        <div class="col-12 col-lg-4">
-          <div class="card sidebar-card">
-            <div class="card-header">Documentos</div>
-            <div class="card-body">
-              <form id="upload-form">
-                <div class="mb-2">
-                  <input id="file-input" type="file" class="form-control" multiple>
-                </div>
-                <div class="d-grid">
-                  <button id="upload-btn" type="button" class="btn btn-success">Subir documentos</button>
-                </div>
-              </form>
-
-              <hr>
-              <div id="files-list" class="files-list small text-break">
-                <!-- Uploaded files listed here -->
-                <div class="text-muted">No hay documentos cargados.</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="mt-3 text-muted small">
-            Soporta archivos de texto y PDF. El contenido se muestra de forma simulada.
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="app.js"></script>
+    <div id="chatScreen" class="chat-area d-none">
+        <div class="chat-header">
+            <div>
+                <h5 class="m-0" id="chatTitle">Título del Documento</h5>
+                <small class="text-muted" id="chatDate">Fecha</small>
+            </div>
+            <div class="d-flex gap-2">
+                <a id="btnDownload" href="#" target="_blank" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1">
+                    ⬇ Descargar PDF
+                </a>
+                <button id="btnAudio" class="btn btn-warning btn-sm" disabled onclick="playLastAudio()">
+                    🔊 Escuchar
+                </button>
+            </div>
+        </div>
+
+        <div id="messagesBox" class="messages-box">
+            </div>
+
+        <div class="input-area">
+            <form id="chatForm" class="d-flex gap-2" onsubmit="handleSendMessage(event)">
+                <input type="text" id="messageInput" class="form-control" placeholder="Escribe tu pregunta legal aquí..." autocomplete="off">
+                <button type="submit" class="btn btn-primary px-4">Enviar</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ================= CONFIGURACIÓN =================
+    const API_URL = 'http://127.0.0.1:8080/api';
+    
+    // Estado Global
+    let currentChatId = null;
+    let currentAudioB64 = null;
+
+    // ================= AL INICIAR =================
+    document.addEventListener('DOMContentLoaded', () => {
+        loadChats();
+    });
+
+    // ================= 1. CARGAR LISTA DE CHATS =================
+    async function loadChats() {
+        const listContainer = document.getElementById('chatList');
+        try {
+            const response = await fetch(`${API_URL}/chats`);
+            
+            if (!response.ok) throw new Error('Error de conexión');
+            
+            const data = await response.json();
+            
+            if (data.data.length === 0) {
+                listContainer.innerHTML = '<div class="text-center text-muted mt-3 p-3">No hay documentos. ¡Sube uno!</div>';
+                return;
+            }
+
+            // Renderizar lista
+            listContainer.innerHTML = data.data.map(chat => `
+                <div class="chat-item" onclick="openChat(${chat.id_chat}, '${chat.title}', '${chat.created_at}', ${chat.id_document})">
+                    <div class="fw-bold text-truncate">${chat.title}</div>
+                    <small class="text-muted">${new Date(chat.created_at).toLocaleDateString()}</small>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error(error);
+            listContainer.innerHTML = `
+                <div class="alert alert-danger m-2">
+                    <strong>Error:</strong> No se pudo conectar al Backend (Puerto 8080).<br>
+                    <small>Verifica que Laravel esté corriendo y que hayas aplicado el hack de CORS en index.php</small>
+                </div>`;
+        }
+    }
+
+    // ================= 2. SUBIR ARCHIVO =================
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validaciones básicas
+        if (file.type !== 'application/pdf') return alert('Solo PDFs');
+        if (file.size > 10 * 1024 * 1024) return alert('Máximo 10MB');
+
+        // Mostrar loading
+        document.getElementById('chatList').innerHTML = '<div class="text-center mt-5"><div class="spinner-border text-primary"></div><p>Subiendo y analizando...</p></div>';
+
+        const formData = new FormData();
+        formData.append('pdf_file', file);
+        formData.append('titulo', file.name.replace('.pdf', ''));
+
+        try {
+            const res = await fetch(`${API_URL}/chats`, {
+                method: 'POST',
+                body: formData // Fetch pone el header correcto automáticamente
+            });
+
+            if (!res.ok) throw new Error('Falló la subida');
+
+            const data = await res.json();
+            
+            // Recargar lista y abrir chat
+            await loadChats();
+            openChat(data.data.id_chat, data.data.title, data.data.created_at, data.data.id_document);
+
+        } catch (error) {
+            alert('Error al subir el archivo: ' + error.message);
+            loadChats(); // Restaurar lista
+        }
+    });
+
+    // ================= 3. ABRIR CHAT =================
+    async function openChat(chatId, title, date, docId) {
+        currentChatId = chatId;
+        
+        // UI Switch
+        document.getElementById('welcomeScreen').classList.add('d-none');
+        document.getElementById('chatScreen').classList.remove('d-none');
+        
+        // Set Header Data
+        document.getElementById('chatTitle').innerText = title;
+        document.getElementById('chatDate').innerText = new Date(date).toLocaleDateString();
+        document.getElementById('btnDownload').href = `${API_URL}/documents/${docId}/download`;
+        
+        // Limpiar mensajes y mostrar loading
+        const box = document.getElementById('messagesBox');
+        box.innerHTML = '<div class="text-center mt-5"><div class="spinner-border text-secondary"></div></div>';
+
+        try {
+            const res = await fetch(`${API_URL}/chats/${chatId}`);
+            const data = await res.json();
+            
+            renderMessages(data.data.messages || []);
+
+        } catch (error) {
+            box.innerHTML = '<div class="alert alert-danger text-center">Error cargando historial</div>';
+        }
+    }
+
+    // ================= 4. ENVIAR MENSAJE =================
+    async function handleSendMessage(e) {
+        e.preventDefault();
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!text || !currentChatId) return;
+
+        // 1. Agregar mensaje de usuario visualmente
+        addMessageBubble(text, 'user');
+        input.value = '';
+        input.disabled = true;
+
+        // 2. Agregar burbuja de "Pensando..."
+        const box = document.getElementById('messagesBox');
+        const loadingId = 'loading-' + Date.now();
+        box.innerHTML += `<div id="${loadingId}" class="message bot"><em>🤖 Analizando documento...</em></div>`;
+        box.scrollTop = box.scrollHeight;
+
+        try {
+            const res = await fetch(`${API_URL}/chats/${currentChatId}/mensaje`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: text })
+            });
+
+            const data = await res.json();
+
+            // Quitar loading
+            document.getElementById(loadingId).remove();
+
+            if (data.status === 'success') {
+                // Mostrar respuesta IA
+                addMessageBubble(data.ai_message.content, 'bot');
+                
+                // Guardar Audio
+                currentAudioB64 = data.audio_base64;
+                document.getElementById('btnAudio').disabled = !currentAudioB64;
+            } else {
+                addMessageBubble('❌ Error: La IA no respondió.', 'bot');
+            }
+
+        } catch (error) {
+            document.getElementById(loadingId).remove();
+            addMessageBubble('❌ Error de red ("Failed to fetch"). Revisa el servidor.', 'bot');
+        } finally {
+            input.disabled = false;
+            input.focus();
+        }
+    }
+
+    // ================= 5. UTILIDADES (RENDER) =================
+    function renderMessages(messages) {
+        const box = document.getElementById('messagesBox');
+        box.innerHTML = '';
+
+        if (messages.length === 0) {
+            box.innerHTML = '<div class="text-center text-muted mt-5">💬 Chat iniciado. Haz una pregunta sobre el PDF.</div>';
+            return;
+        }
+
+        messages.forEach(msg => {
+            const type = msg.sender === 'user' ? 'user' : 'bot';
+            addMessageBubble(msg.content, type);
+            // Si es el último mensaje de la IA, guardamos el audio si existiera (lógica simplificada)
+        });
+    }
+
+    function addMessageBubble(text, type) {
+        const box = document.getElementById('messagesBox');
+        const div = document.createElement('div');
+        div.className = `message ${type}`;
+        // Convertir saltos de línea a <br>
+        div.innerHTML = text.replace(/\n/g, '<br>');
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    // ================= 6. AUDIO =================
+    function playLastAudio() {
+        if (!currentAudioB64) return alert('No hay audio disponible');
+        try {
+            const audio = new Audio("data:audio/mp3;base64," + currentAudioB64);
+            audio.play();
+        } catch (e) {
+            console.error(e);
+            alert('Error reproduciendo audio');
+        }
+    }
+</script>
+
 </body>
 </html>
