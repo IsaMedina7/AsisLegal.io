@@ -1,170 +1,144 @@
-/**
- * AsisLegal Frontend - app.js
- * RUTA SEGURA: /api/core
- */
 
-// CONFIGURACIÓN
-const API_BASE = 'https://tu-codigo-raro.ngrok-free.app/api';
-const ENDPOINT = 'core'; // <--- CAMBIO IMPORTANTE
+// Apuntamos a local (HTTP), ruta 'v1' para evitar bloqueos
+const API_URL = 'http://127.0.0.1:8080/api/v1';
+const DOC_URL = 'http://127.0.0.1:8080/api/documents';
 
-const state = {
-    currentChatId: null,
-    chats: []
-};
+let currentChatId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log(`🚀 Conectando a: ${API_BASE}/${ENDPOINT}`);
+    console.log("Conectando a:", API_URL);
     
-    // Listeners
-    const startBtn = document.getElementById('start-btn');
-    const uploadBtn = document.getElementById('upload-btn');
-    const fileInput = document.getElementById('file-input');
-    const sendBtn = document.getElementById('send-btn');
-    const backBtn = document.getElementById('back-btn');
-    const questionInput = document.getElementById('question-input');
-    
-    if(startBtn) startBtn.onclick = () => { showChat(); loadList(); };
-    if(backBtn) backBtn.onclick = () => { showWelcome(); };
-    
+    // Cargar lista inicial
+    loadList();
+
+    // BOTONES
+    const startBtn = document.getElementById('start-btn'); // Botón de bienvenida
+    const sendBtn = document.getElementById('send-btn');   // Botón enviar mensaje
+    const uploadBtn = document.getElementById('upload-btn'); // Botón subir
+    const fileInput = document.getElementById('file-input'); // Input archivo
+
+    // Evento Bienvenida
+    if(startBtn) startBtn.onclick = () => {
+        document.getElementById('welcome-screen').classList.add('d-none');
+        document.getElementById('chat-screen').classList.remove('d-none');
+        loadList();
+    };
+
+    // Evento Subir
     if(uploadBtn && fileInput) {
         uploadBtn.onclick = () => fileInput.click();
         fileInput.onchange = (e) => {
-            if(e.target.files[0]) handleUpload(e.target.files[0]);
+            if(e.target.files[0]) uploadFile(e.target.files[0]);
         };
     }
 
-    if(sendBtn) sendBtn.onclick = onSend;
-    
-    // Carga inicial
-    loadList();
+    // Evento Chat
+    if(sendBtn) sendBtn.onclick = sendMessage;
 });
 
-function showChat() {
-    document.getElementById('welcome-screen')?.classList.add('d-none');
-    document.getElementById('chat-screen')?.classList.remove('d-none');
-}
-function showWelcome() {
-    document.getElementById('chat-screen')?.classList.add('d-none');
-    document.getElementById('welcome-screen')?.classList.remove('d-none');
-}
-
-// --- SUBIR ---
-async function handleUpload(file) {
+// --- 1. SUBIR ARCHIVO ---
+async function uploadFile(file) {
     if(file.type !== 'application/pdf') return alert('Solo PDF');
     
-    const list = document.getElementById('files-list');
-    list.innerHTML = '<div class="text-primary">Subiendo...</div>';
+    document.getElementById('files-list').innerHTML = 'Subiendo...';
+    const formData = new FormData();
+    formData.append('pdf_file', file);
+    formData.append('titulo', file.name.replace('.pdf', ''));
 
     try {
-        const formData = new FormData();
-        formData.append('pdf_file', file);
-        formData.append('titulo', file.name.replace('.pdf',''));
-
-        // PETICIÓN A /api/core
-        const res = await fetch(`${API_BASE}/${ENDPOINT}`, {
-            method: 'POST',
-            body: formData
-        });
-        
+        const res = await fetch(API_URL, { method: 'POST', body: formData });
         const data = await res.json();
+        
         if(data.status === 'success') {
             await loadList();
             openChat(data.data.id_chat);
         } else {
-            alert('Error: ' + (data.message || 'Error desconocido'));
-            loadList();
+            alert('Error: ' + data.message);
         }
     } catch (e) {
-        console.error(e);
-        alert('Error de conexión (Backend bloqueado o apagado)');
-        loadList();
+        alert('Error de conexión. Revisa que el backend corra en el puerto 8080.');
     }
 }
 
-// --- LISTAR ---
+// --- 2. LISTAR DOCUMENTOS ---
 async function loadList() {
     const list = document.getElementById('files-list');
     try {
-        const res = await fetch(`${API_BASE}/${ENDPOINT}`);
+        const res = await fetch(API_URL);
         const data = await res.json();
         
         list.innerHTML = '';
         if(data.data && data.data.length > 0) {
             data.data.forEach(chat => {
-                const div = document.createElement('div');
-                div.className = 'p-2 border-bottom d-flex justify-content-between';
-                div.innerHTML = `
-                    <span onclick="window.openChat(${chat.id_chat})" style="cursor:pointer">
-                        <strong>${chat.title}</strong>
-                    </span>
-                    <a href="${API_BASE}/documents/${chat.id_document}/download" target="_blank">⬇</a>
-                `;
-                list.appendChild(div);
+                list.innerHTML += `
+                    <div class="p-2 border-bottom d-flex justify-content-between">
+                        <span onclick="openChat(${chat.id_chat})" style="cursor:pointer; font-weight:bold;">
+                            ${chat.title}
+                        </span>
+                        <a href="${DOC_URL}/${chat.id_document}/download" target="_blank">⬇</a>
+                    </div>`;
             });
         } else {
             list.innerHTML = '<div class="text-muted p-2">Sin documentos</div>';
         }
     } catch (e) {
         console.error(e);
-        list.innerHTML = '<div class="text-danger small">Error conectando a /api/core</div>';
+        list.innerHTML = '<div class="text-danger">Backend desconectado (8080)</div>';
     }
 }
 
-// --- ABRIR CHAT ---
+// --- 3. ABRIR CHAT ---
 window.openChat = async function(id) {
-    showChat();
-    state.currentChatId = id;
-    const msgs = document.getElementById('messages');
-    msgs.innerHTML = '<div class="text-center mt-3">Cargando...</div>';
+    document.getElementById('welcome-screen').classList.add('d-none');
+    document.getElementById('chat-screen').classList.remove('d-none');
+    currentChatId = id;
+    
+    const box = document.getElementById('messages');
+    box.innerHTML = 'Cargando...';
 
     try {
-        const res = await fetch(`${API_BASE}/${ENDPOINT}/${id}`);
+        const res = await fetch(`${API_URL}/${id}`);
         const data = await res.json();
+        box.innerHTML = '';
         
-        msgs.innerHTML = '';
         if(data.data.messages) {
-            data.data.messages.forEach(m => appendMsg(m.sender, m.content));
+            data.data.messages.forEach(m => addMsg(m.sender, m.content));
         }
     } catch (e) {
-        msgs.innerHTML = 'Error al cargar historial';
+        box.innerHTML = 'Error al cargar mensajes';
     }
 };
 
-// --- ENVIAR ---
-async function onSend() {
+// --- 4. ENVIAR MENSAJE ---
+async function sendMessage() {
     const input = document.getElementById('question-input');
     const text = input.value;
-    if(!text || !state.currentChatId) return;
+    if(!text || !currentChatId) return;
 
-    appendMsg('user', text);
+    addMsg('user', text);
     input.value = '';
-    
+
     try {
-        const res = await fetch(`${API_BASE}/${ENDPOINT}/${state.currentChatId}/mensaje`, {
+        const res = await fetch(`${API_URL}/${currentChatId}/mensaje`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({content: text})
         });
         const data = await res.json();
+        
         if(data.status === 'success') {
-            appendMsg('IA', data.ai_message.content);
+            addMsg('IA', data.ai_message.content);
             if(data.audio_base64) {
-                const btn = document.getElementById('play-audio');
-                if(btn) {
-                    btn.onclick = () => new Audio("data:audio/mp3;base64," + data.audio_base64).play();
-                    // alert("Audio listo para reproducir");
-                }
+                 // Auto-reproducir audio o habilitar botón
+                 new Audio("data:audio/mp3;base64," + data.audio_base64).play();
             }
         }
     } catch (e) {
-        appendMsg('IA', 'Error de conexión');
+        addMsg('IA', 'Error de conexión con la IA');
     }
 }
 
-function appendMsg(sender, text) {
+function addMsg(sender, text) {
     const box = document.getElementById('messages');
-    const div = document.createElement('div');
-    div.className = sender === 'user' ? 'text-end mb-2' : 'text-start mb-2';
-    div.innerHTML = `<span class="d-inline-block p-2 rounded ${sender==='user'?'bg-primary text-white':'bg-light border'}">${text}</span>`;
-    box.appendChild(div);
+    box.innerHTML += `<div class="mb-2 p-2 rounded ${sender==='user'?'bg-primary text-white text-end':'bg-light border'}">${text}</div>`;
 }
