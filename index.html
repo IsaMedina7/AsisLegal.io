@@ -3,181 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AsisLegal - Panel de Control</title>
+    <title>AsisLegal - Expedientes</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f4f7f6; height: 100vh; display: flex; overflow: hidden; }
-        
-        /* Sidebar Izquierdo */
-        .sidebar { width: 320px; background: white; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; }
-        .sidebar-header { padding: 20px; background: #0d6efd; color: white; }
-        .document-list { flex: 1; overflow-y: auto; padding: 10px; }
-        .doc-item { padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: 0.2s; border-radius: 5px; }
-        .doc-item:hover { background-color: #f8f9fa; }
-        .doc-item.active { background-color: #e7f1ff; border-left: 4px solid #0d6efd; }
-        
-        /* Área Principal */
-        .main-content { flex: 1; display: flex; flex-direction: column; background: #fff; }
-        .chat-header { padding: 15px 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; }
-        .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background-color: #f0f2f5; }
-        
-        /* Burbujas */
-        .message { max-width: 75%; padding: 12px 18px; border-radius: 18px; font-size: 0.95rem; line-height: 1.5; }
-        .message.user { align-self: flex-end; background-color: #0d6efd; color: white; border-bottom-right-radius: 4px; }
-        .message.bot { align-self: flex-start; background-color: white; color: #333; border: 1px solid #ddd; border-bottom-left-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        
-        /* Input Area */
-        .input-area { padding: 20px; border-top: 1px solid #ddd; background: white; }
+        body { background-color: #f8f9fa; height: 100vh; overflow: hidden; display: flex; }
+        .sidebar { width: 350px; background: white; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; }
+        .main { flex: 1; display: flex; flex-direction: column; background: #fff; }
+        .chat-box { flex: 1; overflow-y: auto; padding: 20px; background: #f0f2f5; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 80%; padding: 10px 15px; border-radius: 15px; }
+        .user { align-self: flex-end; background: #0d6efd; color: white; }
+        .bot { align-self: flex-start; background: white; border: 1px solid #ddd; }
+        .item-doc { cursor: pointer; padding: 10px; border-bottom: 1px solid #eee; }
+        .item-doc:hover { background: #f1f1f1; }
     </style>
 </head>
 <body>
 
 <div class="sidebar">
-    <div class="sidebar-header">
-        <h4 class="m-0 fw-bold">AsisLegal ⚖️</h4>
-        <small>Asistente Jurídico IA</small>
+    <div class="p-3 bg-primary text-white">
+        <h5 class="m-0">AsisLegal ⚖️</h5>
     </div>
-    
     <div class="p-3 border-bottom">
         <input type="file" id="fileInput" accept="application/pdf" class="d-none">
-        <button onclick="document.getElementById('fileInput').click()" class="btn btn-light w-100 border fw-bold text-primary">
-            + Subir PDF Nuevo
+        <button onclick="document.getElementById('fileInput').click()" class="btn btn-outline-primary w-100">
+            + Nuevo Expediente
         </button>
     </div>
-
-    <div id="docList" class="document-list">
-        <div class="text-center text-muted mt-4">Cargando documentos...</div>
+    <div id="listContainer" class="flex-grow-1 overflow-auto">
+        <div class="text-center mt-4 text-muted">Cargando...</div>
     </div>
 </div>
 
-<div class="main-content">
-    
-    <div id="welcomeScreen" class="d-flex flex-column justify-content-center align-items-center h-100 text-center p-5">
-        <h2 class="text-secondary">Bienvenido al Panel Legal</h2>
-        <p class="text-muted">Selecciona un documento de la izquierda o sube uno nuevo para comenzar.</p>
+<div class="main">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light">
+        <h5 class="m-0" id="headerTitle">Bienvenido</h5>
+        <div>
+            <a id="btnDownload" href="#" target="_blank" class="btn btn-sm btn-secondary d-none">⬇ Descargar PDF</a>
+            <button id="btnAudio" class="btn btn-sm btn-warning d-none" onclick="playAudio()">🔊 Escuchar</button>
+        </div>
     </div>
 
-    <div id="chatScreen" class="d-none flex-column h-100">
-        <div class="chat-header">
-            <div>
-                <h5 class="m-0 fw-bold" id="chatTitle">Contrato.pdf</h5>
-                <small class="text-muted" id="chatDate">Subido el 22/11/2025</small>
-            </div>
-            <div class="d-flex gap-2">
-                <a id="btnDownload" href="#" target="_blank" class="btn btn-outline-secondary btn-sm">⬇ Descargar PDF</a>
-                <button id="btnAudio" class="btn btn-warning btn-sm text-dark fw-bold" disabled onclick="playAudio()">🔊 Escuchar</button>
-            </div>
+    <div id="chatBox" class="chat-box">
+        <div class="text-center mt-5 text-muted">
+            <h3>Panel de Control Legal</h3>
+            <p>Selecciona un expediente o sube uno nuevo.</p>
         </div>
+    </div>
 
-        <div id="chatBox" class="chat-messages">
-            </div>
-
-        <div class="input-area">
-            <form onsubmit="sendMessage(event)" class="d-flex gap-2">
-                <input type="text" id="msgInput" class="form-control" placeholder="Haz una pregunta sobre este documento..." autocomplete="off">
-                <button type="submit" class="btn btn-primary px-4">Enviar</button>
-            </form>
-        </div>
+    <div class="p-3 border-top">
+        <form id="chatForm" class="d-flex gap-2">
+            <input type="text" id="msgInput" class="form-control" placeholder="Escribe tu consulta..." disabled>
+            <button type="submit" id="btnSend" class="btn btn-primary" disabled>Enviar</button>
+        </form>
     </div>
 </div>
 
 <script>
-    // === CONFIGURACIÓN ===
-    const API = 'http://127.0.0.1:8080/api';
-    let activeChatId = null;
+    // ==========================================
+    // ⚙️ CONFIGURACIÓN NUEVA (Ruta cambiada)
+    // ==========================================
+    const API = 'http://127.0.0.1:8080/api'; 
+    
+    // Variables de estado
+    let activeId = null;
     let currentAudio = null;
 
-    // === AL INICIAR ===
-    document.addEventListener('DOMContentLoaded', loadDocuments);
+    // --- 1. INICIALIZAR ---
+    document.addEventListener('DOMContentLoaded', () => {
+        loadExpedientes();
+    });
 
-    // 1. CARGAR DOCUMENTOS
-    async function loadDocuments() {
+    // --- 2. CARGAR LISTA (GET /expedientes) ---
+    async function loadExpedientes() {
+        const list = document.getElementById('listContainer');
         try {
-            const res = await fetch(`${API}/chats`);
-            if (!res.ok) throw new Error('Error de conexión');
+            // CAMBIO AQUÍ: Usamos /expedientes
+            const res = await fetch(`${API}/expedientes`);
             const data = await res.json();
-            
-            const list = document.getElementById('docList');
-            if (data.data.length === 0) {
-                list.innerHTML = '<div class="text-center text-muted mt-4">No hay documentos.</div>';
+
+            if(data.data.length === 0) {
+                list.innerHTML = '<div class="p-3 text-center text-muted">No hay expedientes.</div>';
                 return;
             }
 
-            list.innerHTML = data.data.map(chat => `
-                <div class="doc-item" onclick="openChat(${chat.id_chat}, '${chat.title}', '${chat.created_at}', ${chat.id_document})">
-                    <div class="fw-bold text-truncate">${chat.title}</div>
-                    <small class="text-muted">${new Date(chat.created_at).toLocaleDateString()}</small>
+            list.innerHTML = data.data.map(item => `
+                <div class="item-doc" onclick="openExpediente(${item.id_chat}, '${item.title}', ${item.id_document})">
+                    <div class="fw-bold text-truncate">${item.title}</div>
+                    <small class="text-muted">${new Date(item.created_at).toLocaleDateString()}</small>
                 </div>
             `).join('');
 
-        } catch (e) {
-            console.error(e);
-            document.getElementById('docList').innerHTML = 
-                '<div class="alert alert-danger m-2 text-center small">Error: El servidor (puerto 8080) no responde o bloqueó la conexión.</div>';
+        } catch (error) {
+            console.error(error);
+            list.innerHTML = '<div class="alert alert-danger m-2">Error de conexión (8080)</div>';
         }
     }
 
-    // 2. SUBIR PDF
+    // --- 3. SUBIR ARCHIVO (POST /expedientes) ---
     document.getElementById('fileInput').addEventListener('change', async (e) => {
         const file = e.target.files[0];
-        if (!file) return;
-
-        if (file.type !== 'application/pdf') return alert('Solo archivos PDF');
-
-        // Feedback visual inmediato
-        document.getElementById('docList').innerHTML = '<div class="text-center mt-5 text-primary"><div class="spinner-border spinner-border-sm"></div> Subiendo...</div>';
+        if(!file) return;
 
         const formData = new FormData();
         formData.append('pdf_file', file);
         formData.append('titulo', file.name.replace('.pdf', ''));
 
-        try {
-            const res = await fetch(`${API}/chats`, { method: 'POST', body: formData });
-            const data = await res.json();
+        document.getElementById('listContainer').innerHTML = '<div class="text-center mt-3 spinner-border text-primary"></div>';
 
-            if (data.status === 'success') {
-                await loadDocuments(); // Recargar lista
-                openChat(data.data.id_chat, data.data.title, data.data.created_at, data.data.id_document);
+        try {
+            // CAMBIO AQUÍ: Usamos /expedientes
+            const res = await fetch(`${API}/expedientes`, { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            if(data.status === 'success') {
+                await loadExpedientes();
+                openExpediente(data.data.id_chat, data.data.title, data.data.id_document);
             } else {
-                alert('Error: ' + (data.message || 'Falló la subida'));
-                loadDocuments();
+                alert('Error al subir');
+                loadExpedientes();
             }
         } catch (error) {
-            alert('Error crítico: Failed to fetch. Revisa la consola.');
-            loadDocuments();
+            alert('Error de conexión al subir');
+            loadExpedientes();
         }
     });
 
-    // 3. ABRIR CHAT
-    async function openChat(id, title, date, docId) {
-        activeChatId = id;
-        document.getElementById('welcomeScreen').classList.add('d-none');
-        const chatScreen = document.getElementById('chatScreen');
-        chatScreen.classList.remove('d-none');
-        chatScreen.classList.add('d-flex');
-
-        document.getElementById('chatTitle').innerText = title;
-        document.getElementById('chatDate').innerText = new Date(date).toLocaleDateString();
-        document.getElementById('btnDownload').href = `${API}/documents/${docId}/download`;
+    // --- 4. ABRIR CHAT (GET /expedientes/{id}) ---
+    async function openExpediente(id, title, docId) {
+        activeId = id;
+        document.getElementById('headerTitle').innerText = title;
+        document.getElementById('msgInput').disabled = false;
+        document.getElementById('btnSend').disabled = false;
         
+        // Configurar botón descargar
+        const btnDown = document.getElementById('btnDownload');
+        btnDown.href = `${API}/documents/${docId}/download`;
+        btnDown.classList.remove('d-none');
+
         const box = document.getElementById('chatBox');
-        box.innerHTML = '<div class="text-center mt-5"><div class="spinner-border text-secondary"></div></div>';
+        box.innerHTML = '<div class="text-center mt-5 spinner-border"></div>';
 
         try {
-            const res = await fetch(`${API}/chats/${id}`);
+            // CAMBIO AQUÍ: Usamos /expedientes
+            const res = await fetch(`${API}/expedientes/${id}`);
             const data = await res.json();
             renderMessages(data.data.messages || []);
-        } catch (e) {
-            box.innerHTML = '<div class="text-center text-danger mt-5">Error cargando historial</div>';
+        } catch (error) {
+            box.innerHTML = '<div class="text-center text-danger">Error cargando chat</div>';
         }
     }
 
-    // 4. ENVIAR MENSAJE
-    async function sendMessage(e) {
+    // --- 5. ENVIAR MENSAJE (POST /expedientes/{id}/mensaje) ---
+    document.getElementById('chatForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const input = document.getElementById('msgInput');
         const text = input.value.trim();
-        if (!text || !activeChatId) return;
+        if(!text || !activeId) return;
 
         addBubble(text, 'user');
         input.value = '';
@@ -190,31 +171,32 @@
         box.scrollTop = box.scrollHeight;
 
         try {
-            const res = await fetch(`${API}/chats/${activeChatId}/mensaje`, {
+            // CAMBIO AQUÍ: Usamos /expedientes
+            const res = await fetch(`${API}/expedientes/${activeId}/mensaje`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content: text })
             });
             const data = await res.json();
-            
             document.getElementById(loadId).remove();
 
-            if (data.status === 'success') {
+            if(data.status === 'success') {
                 addBubble(data.ai_message.content, 'bot');
-                // Guardar Audio
                 currentAudio = data.audio_base64;
-                document.getElementById('btnAudio').disabled = !currentAudio;
+                const btnAudio = document.getElementById('btnAudio');
+                if(currentAudio) btnAudio.classList.remove('d-none');
+                else btnAudio.classList.add('d-none');
             } else {
                 addBubble('Error en la IA', 'bot');
             }
         } catch (error) {
             document.getElementById(loadId).remove();
-            addBubble('Error de conexión', 'bot');
+            addBubble('Error de red', 'bot');
         } finally {
             input.disabled = false;
             input.focus();
         }
-    }
+    });
 
     function addBubble(text, type) {
         const box = document.getElementById('chatBox');
@@ -228,13 +210,16 @@
     function renderMessages(msgs) {
         const box = document.getElementById('chatBox');
         box.innerHTML = '';
-        if (msgs.length === 0) box.innerHTML = '<div class="text-center text-muted mt-5">Inicia la conversación.</div>';
+        if(msgs.length === 0) {
+            box.innerHTML = '<div class="text-center mt-5 text-muted">Inicia la conversación.</div>';
+            return;
+        }
         msgs.forEach(m => addBubble(m.content, m.sender === 'user' ? 'user' : 'bot'));
+        box.scrollTop = box.scrollHeight;
     }
 
     function playAudio() {
-        if (!currentAudio) return;
-        new Audio("data:audio/mp3;base64," + currentAudio).play();
+        if(currentAudio) new Audio("data:audio/mp3;base64," + currentAudio).play();
     }
 </script>
 
