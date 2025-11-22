@@ -1,9 +1,13 @@
 /**
  * AsisLegal Frontend - app.js
- * Versión Reparada: Navegación Garantizada
+ * RUTA SEGURA: /api/legal (Evita AdBlock)
  */
 
-const API_BASE_URL = 'http://127.0.0.1:8080/api';
+// 1. CONFIGURACIÓN: Fíjate que la URL termina en /legal
+// Esto hace que todas las peticiones vayan a http://127.0.0.1:8080/api/legal
+const API_BASE = 'http://127.0.0.1:8080/api'; 
+const ENDPOINT = 'legal'; // Palabra segura
+
 const DEFAULT_HEADERS = { 'Accept': 'application/json' };
 
 const state = {
@@ -13,193 +17,194 @@ const state = {
     chats: []
 };
 
-// ESPERAR A QUE CARGUE EL HTML
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 AsisLegal Iniciado");
-
-    // --- REFERENCIAS ---
+    console.log(`🚀 Conectando a: ${API_BASE}/${ENDPOINT}`);
+    
     const startBtn = document.getElementById('start-btn');
     const backBtn = document.getElementById('back-btn');
-    const welcomeScreen = document.getElementById('welcome-screen');
-    const chatScreen = document.getElementById('chat-screen');
-    
     const uploadBtn = document.getElementById('upload-btn');
     const fileInput = document.getElementById('file-input');
     const sendBtn = document.getElementById('send-btn');
     const questionInput = document.getElementById('question-input');
     const playAudioBtn = document.getElementById('play-audio');
 
-    // --- NAVEGACIÓN (El arreglo importante) ---
-    if(startBtn) {
-        startBtn.onclick = function() { // Usamos onclick directo para asegurar
-            console.log("Entrando al chat...");
-            welcomeScreen.classList.add('d-none');
-            chatScreen.classList.remove('d-none');
-            loadChatsList();
-        };
-    }
+    // Navegación
+    if(startBtn) startBtn.addEventListener('click', () => { showChat(); loadList(); });
+    if(backBtn) backBtn.addEventListener('click', () => { showWelcome(); state.currentChatId = null; });
 
-    if(backBtn) {
-        backBtn.onclick = function() {
-            chatScreen.classList.add('d-none');
-            welcomeScreen.classList.remove('d-none');
-            state.currentChatId = null;
-        };
-    }
+    // Upload
+    if(uploadBtn) uploadBtn.addEventListener('click', () => fileInput?.click());
+    if(fileInput) fileInput.addEventListener('change', (e) => {
+        const f = e.target.files[0];
+        if(f) handleUpload(f);
+    });
 
-    // --- UPLOAD ---
-    if(uploadBtn && fileInput) {
-        uploadBtn.onclick = () => fileInput.click();
-        fileInput.onchange = (e) => {
-            const selected = Array.from(e.target.files || []);
-            if (selected.length > 0) handleFileUpload(selected[0]);
-        };
-    }
+    // Chat
+    if(sendBtn) sendBtn.addEventListener('click', onSend);
+    if(questionInput) questionInput.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
+    });
 
-    // --- CHAT ---
-    if(sendBtn) sendBtn.onclick = onSend;
-    if(questionInput) {
-        questionInput.onkeydown = (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                onSend();
-            }
-        };
-    }
+    // Audio
+    if(playAudioBtn) playAudioBtn.addEventListener('click', handlePlayAudio);
 
-    // --- AUDIO ---
-    if(playAudioBtn) playAudioBtn.onclick = handlePlayAudio;
-
-    // Carga inicial
-    loadChatsList();
+    loadList();
 });
 
-// ---------------- FUNCIONES LÓGICAS ----------------
+function showChat() {
+    document.getElementById('welcome-screen')?.classList.add('d-none');
+    document.getElementById('chat-screen')?.classList.remove('d-none');
+}
+function showWelcome() {
+    document.getElementById('chat-screen')?.classList.add('d-none');
+    document.getElementById('welcome-screen')?.classList.remove('d-none');
+}
 
-async function handleFileUpload(file) {
-    if (!file) return;
-    if (file.type !== 'application/pdf') return alert('Solo PDF');
+// --- SUBIR ARCHIVO ---
+async function handleUpload(file) {
+    if(file.type !== 'application/pdf') return alert('Solo PDF');
     
-    // Feedback visual simple
-    const list = document.getElementById('files-list');
-    list.innerHTML = '<div class="text-primary">Subiendo...</div>';
+    const btn = document.getElementById('upload-btn');
+    const originalText = btn.innerText;
+    btn.innerText = "Subiendo...";
 
     try {
         const formData = new FormData();
         formData.append('pdf_file', file);
-        formData.append('titulo', file.name.replace(/\.pdf$/i, ''));
+        formData.append('titulo', file.name.replace('.pdf',''));
 
-        const res = await fetch(`${API_BASE_URL}/chats`, { 
+        // Petición a /api/legal
+        const res = await fetch(`${API_BASE}/${ENDPOINT}`, { 
             method: 'POST', 
             body: formData,
             headers: { 'Accept': 'application/json' }
         });
-        const data = await res.json();
         
-        if(data.status === 'success') {
-            await loadChatsList();
-            if(data.data?.id_chat) openChat(data.data.id_chat);
-        } else {
-            alert('Error: ' + data.message);
-        }
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.message || 'Error subiendo');
+
+        await loadList();
+        if(data.data?.id_chat) openChat(data.data.id_chat);
+
     } catch (e) {
         console.error(e);
-        alert('Error de conexión al subir');
+        alert('Error: ' + e.message);
+    } finally {
+        btn.innerText = originalText;
+        document.getElementById('file-input').value = '';
     }
 }
 
-async function loadChatsList() {
+// --- LISTAR ---
+async function loadList() {
     const list = document.getElementById('files-list');
     try {
-        const res = await fetch(`${API_BASE_URL}/chats`);
+        const res = await fetch(`${API_BASE}/${ENDPOINT}`, { headers: DEFAULT_HEADERS });
         const data = await res.json();
         
         if(data.data && data.data.length > 0) {
             list.innerHTML = '';
             data.data.forEach(chat => {
-                const item = document.createElement('div');
-                item.className = 'p-2 border-bottom d-flex justify-content-between';
-                item.innerHTML = `
-                    <span style="cursor:pointer" onclick="window.openChat(${chat.id_chat})">
+                const div = document.createElement('div');
+                div.className = 'p-2 border-bottom d-flex justify-content-between align-items-center';
+                div.innerHTML = `
+                    <span style="cursor:pointer" onclick="openChat(${chat.id_chat})">
                         <strong>${chat.title}</strong>
                     </span>
-                    <a href="${API_BASE_URL}/documents/${chat.id_document}/download" target="_blank">⬇</a>
+                    <a href="${API_BASE}/documents/${chat.id_document}/download" target="_blank">⬇</a>
                 `;
-                list.appendChild(item);
+                list.appendChild(div);
             });
         } else {
-            list.innerHTML = '<div class="text-muted">Sin documentos</div>';
+            list.innerHTML = '<div class="text-muted p-2">Sin documentos.</div>';
         }
     } catch (e) {
-        list.innerHTML = '<div class="text-danger">Error backend</div>';
+        console.error(e); // Si sale error aquí es CORS o Servidor Apagado
+        list.innerHTML = '<div class="text-danger small">Error de conexión</div>';
     }
 }
 
-// Exponemos al window para que el onclick del HTML generado funcione
+// --- ABRIR CHAT ---
 window.openChat = async function(id) {
-    document.getElementById('welcome-screen').classList.add('d-none');
-    document.getElementById('chat-screen').classList.remove('d-none');
-    
+    showChat();
     const msgs = document.getElementById('messages');
-    msgs.innerHTML = '<div class="text-center">Cargando...</div>';
-    state.currentChatId = id;
-
+    msgs.innerHTML = '<div class="text-center mt-3">Cargando...</div>';
+    
     try {
-        const res = await fetch(`${API_BASE_URL}/chats/${id}`);
+        const res = await fetch(`${API_BASE}/${ENDPOINT}/${id}`, { headers: DEFAULT_HEADERS });
         const data = await res.json();
-        const chat = data.data;
+        
+        if(data.status === 'success') {
+            state.currentChatId = id;
+            state.audioBase64 = null;
+            
+            const chat = data.data;
+            // Header
+            const h = document.querySelector('.card-header h5');
+            if(h) h.innerText = chat.title;
 
-        msgs.innerHTML = '';
-        if(chat.messages) {
-            chat.messages.forEach(m => appendMsg(m.sender, m.content));
+            msgs.innerHTML = '';
+            if(chat.messages) {
+                chat.messages.forEach(m => appendMsg(m.sender, m.content));
+            }
         }
     } catch (e) {
-        msgs.innerHTML = 'Error cargando chat';
+        msgs.innerHTML = '<div class="text-danger text-center">Error cargando chat</div>';
     }
 };
 
+// --- ENVIAR ---
 async function onSend() {
     const input = document.getElementById('question-input');
-    const text = input.value;
+    const text = input.value.trim();
     if(!text || !state.currentChatId) return;
 
     appendMsg('user', text);
     input.value = '';
-    
-    // Loading dummy
+    input.disabled = true;
+
     const msgs = document.getElementById('messages');
-    const loadDiv = document.createElement('div');
-    loadDiv.innerHTML = '<em>Pensando...</em>';
-    msgs.appendChild(loadDiv);
+    const loader = document.createElement('div');
+    loader.innerHTML = '<em>IA pensando...</em>';
+    msgs.appendChild(loader);
+    msgs.scrollTop = msgs.scrollHeight;
 
     try {
-        const res = await fetch(`${API_BASE_URL}/chats/${state.currentChatId}/mensaje`, {
+        const res = await fetch(`${API_BASE}/${ENDPOINT}/${state.currentChatId}/mensaje`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({content: text})
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ content: text })
         });
         const data = await res.json();
-        loadDiv.remove();
-        
+        loader.remove();
+
         if(data.status === 'success') {
             appendMsg('IA', data.ai_message.content);
             state.audioBase64 = data.audio_base64;
             state.lastBotResponse = data.ai_message.content;
+        } else {
+            appendMsg('IA', 'Error en respuesta');
         }
     } catch (e) {
-        loadDiv.remove();
+        loader.remove();
         appendMsg('IA', 'Error de conexión');
+    } finally {
+        input.disabled = false;
+        input.focus();
     }
 }
 
 function appendMsg(sender, text) {
     const msgs = document.getElementById('messages');
     const div = document.createElement('div');
-    div.className = sender === 'user' ? 'text-end mb-2' : 'text-start mb-2';
-    div.innerHTML = `<span class="d-inline-block p-2 rounded ${sender==='user'?'bg-primary text-white':'bg-light border'}">${text}</span>`;
+    div.className = `message ${sender==='user'?'user':'bot'} mt-2 p-2 rounded ${sender==='user'?'bg-primary text-white ms-auto':'bg-light border me-auto'}`;
+    div.style.maxWidth = '80%';
+    div.innerHTML = text.replace(/\n/g, '<br>');
     msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
 }
 
+// --- AUDIO ---
 function handlePlayAudio() {
     if(state.audioBase64) new Audio("data:audio/mp3;base64," + state.audioBase64).play();
     else if(state.lastBotResponse) {
