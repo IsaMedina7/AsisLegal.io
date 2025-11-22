@@ -4,7 +4,7 @@
  */
 
 // CONFIGURACIÓN
-const API_BASE = 'http://127.0.0.1:8080/api';
+const API_BASE = 'https://tu-codigo-raro.ngrok-free.app/api';
 const ENDPOINT = 'core'; // <--- CAMBIO IMPORTANTE
 
 const state = {
