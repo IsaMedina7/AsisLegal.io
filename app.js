@@ -115,8 +115,27 @@ async function openChat(chatId) {
 }
 
 // MENSAJES
-sendBtn?.addEventListener('click', onSend);
-questionInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } });
+// Asegurarse que el listener se instale aunque el elemento no exista al cargar
+if (sendBtn) {
+  console.log('sendBtn encontrado, enlazando onSend');
+  sendBtn.addEventListener('click', onSend);
+} else {
+  console.warn('sendBtn no encontrado en DOM al cargar, usando delegación de evento');
+  document.addEventListener('click', (e) => {
+    const target = e.target || e.srcElement;
+    if (!target) return;
+    if (target.id === 'send-btn' || target.closest?.('#send-btn')) {
+      onSend();
+    }
+  });
+}
+
+// Enter para enviar (con fallback global)
+if (questionInput) {
+  questionInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } });
+} else {
+  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && document.activeElement?.id === 'question-input') { e.preventDefault(); onSend(); } });
+}
 
 async function onSend() {
   const text = questionInput?.value?.trim(); if (!text) return; if (!state.currentChatId) { showError('⚠️ No hay chat abierto'); return; }
@@ -145,4 +164,3 @@ function showLoading(message) { const container = document.querySelector('.conta
 function hideLoading() { const a = document.getElementById('loading-alert'); if (a) a.remove(); }
 
 // FIN
-
